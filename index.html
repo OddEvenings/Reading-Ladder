@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reading Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Lexend:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a ladder of 13 rungs on the left (level 1 at the bottom), the chosen level's practice cards on the right; one practice screen at a time. */
+:root{
+  --paper:#F3F7FA; --surface:#FFFFFF; --ink:#15314A; --muted:#55697C; --line:#D5E0E9;
+  --accent:#F2B33D; --accent-ink:#3D2A00; --rail:#8FA9BF;
+  --good:#23845A; --good-bg:#E2F4EA; --bad:#C2453F; --bad-bg:#FBE7E5; --heart:#C2453F;
+  --font-ui:"Lexend", "Segoe UI", system-ui, sans-serif;
+  --font-read:"Andika", "Lexend", "Segoe UI", system-ui, sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0E1822; --surface:#162533; --ink:#E5EEF5; --muted:#9DB0C1; --line:#2A3E50;
+  --accent:#F4BE52; --accent-ink:#2B1D00; --rail:#4D6880;
+  --good:#5CC892; --good-bg:#173B2B; --bad:#F07C75; --bad-bg:#43211F; --heart:#F07C75; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#0E1822; --surface:#162533; --ink:#E5EEF5; --muted:#9DB0C1; --line:#2A3E50;
+  --accent:#F4BE52; --accent-ink:#2B1D00; --rail:#4D6880;
+  --good:#5CC892; --good-bg:#173B2B; --bad:#F07C75; --bad-bg:#43211F; --heart:#F07C75; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:18px;padding-block:20px 48px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance;line-height:1.2}
+
+/* header */
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.brand{font-size:1.9rem;font-weight:700;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-weight:400;font-size:1rem;display:block;letter-spacing:0;margin-top:4px}
+
+/* home layout */
+.home{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+.ladder{position:relative;display:flex;flex-direction:column-reverse;gap:6px;padding-inline:18px}
+.ladder::before,.ladder::after{content:"";position:absolute;top:-6px;bottom:-6px;width:6px;border-radius:3px;background:var(--rail)}
+.ladder::before{left:4px}.ladder::after{right:4px}
+.rung{position:relative;z-index:1;display:flex;align-items:center;gap:10px;text-align:left;border:2px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 10px}
+.rung b{font-variant-numeric:tabular-nums;min-width:1.6em;font-size:1.05rem}
+.rung small{color:var(--muted);font-size:.82rem;line-height:1.2}
+.rung:hover{border-color:var(--rail)}
+.rung[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.rung[aria-pressed="true"] small{color:var(--accent-ink)}
+.ladder-label{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px 18px}
+
+.level-head{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.eyebrow{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.level-head h2{font-size:1.7rem}
+.samples{font-family:var(--font-read);font-size:1.15rem;color:var(--muted)}
+.samples strong{color:var(--ink);font-weight:700}
+
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.act{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--surface);border:2px solid var(--line);border-radius:var(--r);padding:16px 16px 14px}
+.act:hover{border-color:var(--accent)}
+.act h3{font-size:1.15rem}
+.act p{margin:0;color:var(--muted);font-size:.92rem;line-height:1.4}
+.act .best{margin-top:auto;padding-top:6px;font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:center}
+.stars{color:var(--accent);letter-spacing:2px;font-size:1.05rem}
+.stars .off{color:var(--line)}
+
+.scoreLog{margin-top:30px}
+.scoreLog h3{font-size:1.1rem;margin-bottom:10px}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.05em;text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums}
+.empty{padding:18px;color:var(--muted)}
+.hist-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;color:var(--muted);font-size:.85rem}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:4px}
+
+/* practice screen */
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.back{border:2px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:.95rem}
+.bar .where{flex:1;min-width:0}
+.bar .where div{font-size:.8rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.bar .where h2{font-size:1.35rem}
+.meter{display:flex;gap:14px;font-variant-numeric:tabular-nums;font-size:.95rem;color:var(--muted)}
+.meter b{color:var(--ink)}
+.progress{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:22px}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+
+.stage{background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:clamp(18px,4vw,36px);display:flex;flex-direction:column;align-items:center;gap:22px;min-height:360px}
+.prompt{font-size:1.1rem;color:var(--muted);text-align:center}
+.hear{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:14px 26px;font-size:1.15rem;font-weight:600}
+.hear svg{width:24px;height:24px}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;width:100%;max-width:560px}
+.choice{font-family:var(--font-read);font-size:clamp(1.6rem,6vw,2.4rem);padding:18px 10px;border:3px solid var(--line);background:var(--paper);border-radius:var(--r);overflow-wrap:anywhere}
+.choice:hover:not(:disabled){border-color:var(--rail)}
+.choice.small{font-size:1.15rem;font-family:var(--font-ui);text-align:left;padding:14px 16px}
+.choice.right{border-color:var(--good);background:var(--good-bg)}
+.choice.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.choice:disabled{cursor:default}
+.feedback{min-height:1.6em;font-weight:600;text-align:center;font-size:1.1rem}
+.feedback.good{color:var(--good)}.feedback.bad{color:var(--bad)}
+.next,.primary{background:var(--ink);color:var(--paper);border:0;border-radius:999px;padding:12px 30px;font-size:1.05rem;font-weight:600}
+.ghost{background:none;border:2px solid var(--line);border-radius:999px;padding:10px 22px;font-size:1rem}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+
+.bigword{font-family:var(--font-read);font-size:clamp(2.6rem,11vw,4.6rem);font-weight:700;letter-spacing:.02em;text-align:center;min-height:1.3em;overflow-wrap:anywhere}
+.heartword .h{color:var(--heart);position:relative;display:inline-block}
+.heartword .h::after{content:"\2665";position:absolute;left:50%;top:-.55em;transform:translateX(-50%);font-size:.4em}
+.note{color:var(--muted);text-align:center;max-width:46ch;margin:0}
+
+/* spell */
+.slots{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.slot{width:clamp(36px,8vw,52px);height:clamp(46px,10vw,62px);border-bottom:4px solid var(--rail);font-family:var(--font-read);font-size:clamp(1.6rem,6vw,2.3rem);display:flex;align-items:center;justify-content:center;background:none;border-top:0;border-left:0;border-right:0;padding:0}
+.slot.filled{border-bottom-color:var(--ink)}
+.slots.right .slot{border-bottom-color:var(--good);color:var(--good)}
+.slots.wrong .slot{border-bottom-color:var(--bad);color:var(--bad)}
+.tiles{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:620px}
+.tile{width:clamp(44px,10vw,58px);height:clamp(44px,10vw,58px);border:2px solid var(--line);background:var(--paper);border-radius:10px;font-family:var(--font-read);font-size:clamp(1.4rem,5vw,1.9rem)}
+.tile:disabled{opacity:.25;cursor:default}
+
+/* speed */
+.timer{font-variant-numeric:tabular-nums;font-size:2.2rem;font-weight:700}
+.flash{font-family:var(--font-read);font-size:clamp(2.6rem,11vw,4.6rem);font-weight:700;min-height:1.4em;display:flex;align-items:center}
+
+/* passage */
+.passage-wrap{width:100%;max-width:720px;display:flex;flex-direction:column;gap:16px}
+.passage{font-family:var(--font-read);font-size:clamp(1.25rem,3.6vw,1.5rem);line-height:1.75;margin:0;max-width:62ch}
+.passage h3{font-family:var(--font-ui);font-size:1.4rem;margin-bottom:8px}
+.readbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;border-top:2px solid var(--line);padding-top:14px}
+.clock{font-variant-numeric:tabular-nums;font-size:1.4rem;font-weight:700}
+.wpm{font-size:1.1rem}
+.wpm b{font-size:1.6rem}
+.qbox{width:100%;max-width:720px;display:flex;flex-direction:column;gap:12px;border-top:2px solid var(--line);padding-top:18px}
+.qbox .qtype{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qbox h4{margin:0;font-size:1.25rem;font-weight:600}
+.qbox .choices{max-width:none;grid-template-columns:1fr}
+
+/* results */
+.result{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.result .score{font-size:clamp(3rem,12vw,4.8rem);font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.result .stars{font-size:2.6rem;letter-spacing:6px}
+.result .msg{font-size:1.25rem}
+.result .extra{color:var(--muted)}
+.missed{font-family:var(--font-read);font-size:1.2rem;color:var(--muted);max-width:46ch}
+
+.confirm{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.warn{color:var(--bad)}
+
+@media (max-width:760px){
+  .home{grid-template-columns:1fr;gap:18px}
+  .ladder{flex-direction:row;flex-wrap:wrap;padding:0;gap:8px}
+  .ladder::before,.ladder::after{display:none}
+  .rung{padding:6px 10px}
+  .rung small{display:none}
+  .ladder-label{margin-left:0}
+}
+@media (max-width:420px){ .choices{gap:10px} .choice{padding:14px 6px} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Reading Ladder<span>Pick your level, then pick a practice.</span></div>
+  </header>
+
+  <!-- HOME -->
+  <section id="home">
+    <div class="home">
+      <nav aria-label="Levels">
+        <p class="ladder-label">Levels</p>
+        <div class="ladder" id="ladder"></div>
+      </nav>
+      <div style="min-width:0">
+        <div class="level-head">
+          <div class="eyebrow" id="lvEyebrow"></div>
+          <h2 id="lvTitle"></h2>
+          <div class="samples" id="lvSamples"></div>
+        </div>
+        <div class="acts" id="acts"></div>
+        <div class="scoreLog">
+          <h3>Recent scores on this device</h3>
+          <div class="tbl" id="histTbl"></div>
+          <div class="hist-foot">
+            <span>Scores are saved on this computer or tablet only.</span>
+            <span class="confirm" id="clearBox"><button class="linkbtn" id="clearBtn" type="button">Clear scores</button></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRACTICE -->
+  <section id="practice" hidden>
+    <div class="bar">
+      <button class="back" id="backBtn" type="button">&larr; Levels</button>
+      <div class="where"><div id="pLevel"></div><h2 id="pTitle"></h2></div>
+      <div class="meter" id="meter"></div>
+    </div>
+    <div class="progress"><i id="prog"></i></div>
+    <div class="stage" id="stage"></div>
+  </section>
+</div>
+
+<script>
+/* ---------------- CONTENT ---------------- */
+// Heart words: [brackets] mark the part that must be learned by heart.
+const LEVELS = [
+{ n:1, name:"Short vowels", hint:"cat · sit · hop",
+  words:["cat","map","hat","bag","sit","pig","fin","lid","hop","dog","pot","mop","bug","sun","cup","rug","ten","bed","jet","net","van","rib","fox","hut"],
+  heart:["th[e]","[a]","[of]","t[o]","i[s]","w[as]","s[ai]d"],
+  passage:{title:"The Cat in the Sun", text:"Adam has a red cap. He sat on a mat in the sun. A cat ran up to Adam. The cat was big and tan. Adam had a bit of ham. He fed the ham to the cat. The cat sat on his lap. Adam said, \"It is hot in the sun.\" Adam and the cat got up and ran to sit in the den.",
+  q:[ {t:"Recall",q:"What color was Adam's cap?",o:["red","tan","black","green"]},
+      {t:"Recall",q:"What did Adam feed the cat?",o:["ham","fish","milk","a bun"]},
+      {t:"Recall",q:"Where did the cat sit?",o:["on Adam's lap","on the cap","in a box","on the bed"]},
+      {t:"Inference",q:"Why did Adam and the cat go to the den?",o:["It was hot in the sun.","The cat was sad.","It was time for bed.","Adam lost his cap."]} ]}},
+{ n:2, name:"sh, ch, th, wh, ck", hint:"ship · chop · duck",
+  words:["ship","shop","fish","dish","chop","chin","rich","much","thin","with","bath","math","when","whip","duck","sock","back","kick","neck","rock","shed","chat","them","shut"],
+  heart:["wh[a]t","[wh][o]","d[oes]","fr[o]m","ha[ve]"],
+  passage:{title:"Fish for Lunch", text:"Bilal and his dad sat on the dock. Dad had a rod. Bilal had a net. \"What can we get?\" said Bilal. Dad got a fish, but it was thin. He let it go back in. Then Bilal got a fish with his net. It was big and thick! \"We can have this fish for lunch,\" said Dad. Bilal was so glad. He ran to tell Mom.",
+  q:[ {t:"Recall",q:"What did Bilal use to catch his fish?",o:["a net","a rod","his hands","a dish"]},
+      {t:"Inference",q:"Why did Dad let his fish go?",o:["It was too thin.","It was red.","It bit him.","It was too big."]},
+      {t:"Recall",q:"What will they have for lunch?",o:["the big fish","chips","eggs","a sandwich"]},
+      {t:"Feelings",q:"How did Bilal feel at the end?",o:["glad","sad","mad","sick"]} ]}},
+{ n:3, name:"Blends, -ng, -nk", hint:"stop · hand · pink",
+  words:["stop","frog","flag","clap","drum","crab","step","swim","plan","trip","hand","lamp","nest","jump","tent","milk","belt","ring","king","long","pink","bank","think","skunk"],
+  heart:["th[ey]","th[ere]","w[a]nt","w[ere]","[one]"],
+  passage:{title:"A Tent on the Grass", text:"Hamza and his sister Amna had a plan. They set up a tent on the grass. Amna got a lamp and a blanket. Hamza got a snack of milk and plums. The wind was strong, and the tent went flap, flap, flap. \"Is the tent still up?\" said Hamza. Amna held the pole. \"It will not fall,\" she said. They had their snack and did a puzzle in the tent until it got dark. Then Mom said it was time to come in.",
+  q:[ {t:"Recall",q:"What did Hamza and Amna set up?",o:["a tent","a fort","a desk","a table"]},
+      {t:"Recall",q:"What was their snack?",o:["milk and plums","chips","cake","ham"]},
+      {t:"Cause",q:"What made the tent go flap, flap, flap?",o:["the wind","a cat","Hamza","the rain"]},
+      {t:"Recall",q:"What did they do inside the tent?",o:["did a puzzle","read a map","slept all night","ate lunch"]} ]}},
+{ n:4, name:"ff, ll, ss, zz, -all", hint:"off · bell · ball",
+  words:["off","cliff","stuff","bell","hill","doll","miss","toss","glass","dress","buzz","fizz","ball","tall","wall","call","small","fall","spill","grass","shell","less","puff","smell"],
+  heart:["c[oul]d","w[oul]d","sh[oul]d","t[wo]"],
+  passage:{title:"The Lost Ball", text:"Yusuf and his friends had a ball. Yusuf gave it a big kick. The ball went up, up, up! It went over the wall and fell down the hill. \"We will miss the rest of the game,\" said Bilal. Yusuf ran down the hill. He looked in the tall grass. He looked by the small cliff. At last, he spotted the ball next to a puddle. He got it and ran back up the hill. \"Thanks for not giving up!\" called his friends.",
+  q:[ {t:"Sequence",q:"What happened right after Yusuf kicked the ball?",o:["It went over the wall.","He found it in the grass.","His friends thanked him.","He ran up the hill."]},
+      {t:"Recall",q:"Where did Yusuf find the ball?",o:["next to a puddle","in a tree","in his bag","on the wall"]},
+      {t:"Character",q:"Which words best tell about Yusuf?",o:["He did not give up.","He was lazy.","He was rude.","He was afraid."]},
+      {t:"Recall",q:"Where did the ball fall?",o:["down the hill","into a lake","onto a roof","into the street"]} ]}},
+{ n:5, name:"Silent e", hint:"make · bike · home",
+  words:["make","cake","lake","gate","bike","time","kite","ride","home","rope","bone","note","cute","mule","tube","these","shine","stone","plane","smile","game","five","hope","use"],
+  heart:["g[i]ve","l[i]ve","c[o]me","s[o]me","wh[ere]"],
+  passage:{title:"A Bike Ride Home", text:"After school, Maryam rode her bike home. She took the long way past the lake. The sun made the lake shine. Maryam saw a duck and five little ducklings by a big stone. She stopped her bike to watch them. A man on a bike came by. \"Make sure you get home on time,\" he said with a smile. Maryam waved to the ducks. Then she rode home fast. She made it home just in time for dinner.",
+  q:[ {t:"Recall",q:"How did Maryam get home?",o:["on her bike","on the bus","in a car","walking"]},
+      {t:"Recall",q:"What did she see by the big stone?",o:["a duck and ducklings","a frog","a fish","a cat"]},
+      {t:"Inference",q:"Why did Maryam ride home fast?",o:["to get home on time","to beat a friend","because it was raining","because she was scared"]},
+      {t:"Setting",q:"Where did Maryam see the ducks?",o:["by the lake","at school","in her yard","at the store"]} ]}},
+{ n:6, name:"Vowel teams", hint:"rain · feet · boat · night",
+  words:["rain","mail","paint","play","day","stay","feet","tree","green","sleep","read","team","beach","boat","road","soap","snow","grow","night","light","bright","high","seat","train"],
+  heart:["[a]g[ai]n","m[a]ny","[a]ny","ver[y]"],
+  passage:{title:"A Rainy Day Painting", text:"It was a gray day. Rain fell all morning, so the class could not play outside. Sister Reem had a plan. \"Today we will paint,\" she said. Each student got paper and paint. Aisha painted a green tree. Omar painted a boat on the sea. When the rain stopped, the sun came out. Omar looked out the window. \"Look! I see light on the wet road,\" he said. The class put their paintings on the wall to dry.",
+  q:[ {t:"Cause",q:"Why could the class not play outside?",o:["It was raining.","It was too hot.","It was snowing.","The playground was closed."]},
+      {t:"Recall",q:"What did Aisha paint?",o:["a green tree","a boat","the sun","a road"]},
+      {t:"Sequence",q:"What happened when the rain stopped?",o:["The sun came out.","It got dark.","The class went home.","It started to snow."]},
+      {t:"Main idea",q:"What is this story mostly about?",o:["a class painting on a rainy day","a boat trip","planting trees","a lost umbrella"]} ]}},
+{ n:7, name:"ar, or, er, ir, ur", hint:"car · fork · bird · turn",
+  words:["car","park","star","farm","fork","corn","storm","short","her","fern","bird","girl","shirt","first","turn","burn","hurt","curb","sport","dark","third","church","verb","morning"],
+  heart:["w[or]k","w[or]d","y[our]","f[our]"],
+  passage:{title:"A Trip to the Farm", text:"Last spring, Zaid's class went to a farm. First, the farmer showed them the barn. There were horses and a big brown cow. Next, they went to the corn field. Zaid and his friend Bilal got to pick corn. \"This is hard work!\" said Zaid, but he did not stop. Then the farmer gave each student a fresh egg from the hens. At the end of the day, Zaid was tired, but he said it was his favorite trip.",
+  q:[ {t:"Sequence",q:"What did the class see first?",o:["the barn","the corn field","the hens","the bus"]},
+      {t:"Recall",q:"What did each student get from the farmer?",o:["a fresh egg","a horse ride","a bag of corn","a toy cow"]},
+      {t:"Vocabulary",q:"In this story, what does \"tired\" mean?",o:["needing rest","very happy","very hungry","angry"]},
+      {t:"Feelings",q:"How did Zaid feel about the trip?",o:["It was his favorite.","He did not like it.","He was scared.","He was bored."]} ]}},
+{ n:8, name:"oi, oy, ou, ow, oo, aw", hint:"coin · out · moon · saw",
+  words:["coin","boil","point","boy","toy","out","cloud","house","cow","town","brown","moon","food","spoon","book","look","cook","haul","saw","draw","straw","launch","joy","sound"],
+  heart:["thr[ough]","th[ough]","[e]n[ough]"],
+  passage:{title:"Soup at Grandma's House", text:"On Saturday, Ibrahim went to his grandma's house. \"Can you help me cook?\" she asked. They made a big pot of soup. Ibrahim put the pot on the stove to boil. Grandma cut onions, carrots, and potatoes. Ibrahim stirred the soup with a long wooden spoon. Soon the whole house smelled good. When the soup was done, Ibrahim took the first bowl to his grandpa, who was reading a book in the next room. Grandpa took a taste. \"This is the best soup in town!\" he said.",
+  q:[ {t:"Recall",q:"What did Ibrahim and Grandma make?",o:["soup","cookies","rice","bread"]},
+      {t:"Recall",q:"What did Ibrahim use to stir the soup?",o:["a wooden spoon","a fork","his hands","a cup"]},
+      {t:"Recall",q:"Who got the first bowl?",o:["Grandpa","Grandma","Ibrahim","his sister"]},
+      {t:"Inference",q:"What can you tell about Grandpa?",o:["He liked the soup.","He was angry.","He did not eat.","He was cooking too."]} ]}},
+{ n:9, name:"Soft c/g, -dge, -tch, kn, wr", hint:"city · bridge · knee",
+  words:["city","cent","face","nice","gem","giant","page","cage","bridge","edge","badge","catch","match","kitchen","knee","knock","know","write","wrap","lamb","fence","judge","pitch","wrist"],
+  heart:["fr[ie]nd","[eigh]t","l[augh]","ans[w]er"],
+  passage:{title:"The Kind Neighbor", text:"Fatima's neighbor, Uncle Hassan, is an old man who lives next door. One cold morning, Fatima saw him trying to carry a heavy bag of groceries up the steps. She ran over to help. Together they carried the bag into his kitchen. Uncle Hassan gave her a big smile. \"You are a good friend,\" he said. After that, Fatima went over every Saturday to help him water his plants and put away his groceries. She learned that a small act of kindness can make someone's whole week better.",
+  q:[ {t:"Recall",q:"What was Uncle Hassan carrying?",o:["a heavy bag of groceries","a box of books","a plant","a chair"]},
+      {t:"Recall",q:"Where did they put the bag?",o:["in his kitchen","in the car","on the steps","by the door"]},
+      {t:"Recall",q:"What does Fatima do every Saturday?",o:["helps Uncle Hassan","goes to the park","goes to school","bakes a cake"]},
+      {t:"Main idea",q:"What lesson does Fatima learn?",o:["A small kindness can help someone a lot.","Groceries are heavy.","Plants need water.","Neighbors are noisy."]} ]}},
+{ n:10, name:"Endings: -s, -es, -ed, -ing", hint:"jumped · hoping · running",
+  words:["jumped","played","wanted","hoping","making","running","stopped","sitting","boxes","wishes","baked","tried","cried","hopped","smiled","dishes","raking","planted","helped","swimming","looked","shopping","waited","matches"],
+  heart:[],
+  passage:{title:"Planting Day", text:"On Monday, Noor's class planted bean seeds. Each student filled a cup with soil and pushed two seeds inside. Noor watered her cup and placed it by the sunny window. For three days, nothing happened. Noor kept hoping to see something. On Thursday, she spotted a tiny green sprout poking out of the soil! By the next week, the plant had grown two leaves. Noor measured it with a ruler and wrote the number in her science notebook.",
+  q:[ {t:"Recall",q:"What did the class plant?",o:["bean seeds","flowers","trees","carrots"]},
+      {t:"Recall",q:"Where did Noor put her cup?",o:["by the sunny window","in a dark closet","outside","in her desk"]},
+      {t:"Sequence",q:"On which day did Noor see the sprout?",o:["Thursday","Monday","Friday","Sunday"]},
+      {t:"Inference",q:"Why did Noor write in her science notebook?",o:["to record how tall the plant grew","to draw a picture","to write a story","to copy her homework"]} ]}},
+{ n:11, name:"Two-syllable words", hint:"rabbit · robot · table",
+  words:["rabbit","napkin","basket","robot","tiger","paper","baby","inside","cupcake","sunset","table","apple","candle","little","bubble","kitten","pencil","muffin","garden","window","sister","picnic","seven","puzzle"],
+  heart:[],
+  passage:{title:"Library Day", text:"Every Tuesday, Mariam's family visits the public library. Mariam likes the quiet corner with soft pillows and a little table by the window. Her brother Musa goes straight to the shelf with books about animals. Last week he found a book about tigers and rabbits. Mariam picked a chapter book about a girl who wins a spelling contest. Before they leave, the librarian stamps their cards. Mariam always reads her new book in the car before they even get home.",
+  q:[ {t:"Recall",q:"When does the family visit the library?",o:["every Tuesday","every Saturday","once a year","every morning"]},
+      {t:"Recall",q:"What kind of books does Musa like?",o:["books about animals","books about cars","books about space","books about cooking"]},
+      {t:"Recall",q:"What does the librarian do before they leave?",o:["stamps their cards","reads them a story","gives them snacks","turns off the lights"]},
+      {t:"Inference",q:"What can you tell about Mariam?",o:["She loves reading.","She does not like books.","She is noisy.","She is scared of the library."]} ]}},
+{ n:12, name:"Prefixes and suffixes", hint:"unlock · careful · quickly",
+  words:["unlock","unhappy","redo","reread","preheat","dislike","helpful","careful","hopeless","quickly","slowly","kindness","action","motion","sadly","useful","rebuild","unpack","darkness","thankful","replay","unsafe","softly","painless"],
+  heart:[],
+  passage:{title:"The Tower of Blocks", text:"Ali was unhappy. He had knocked over the tower of blocks he built with his little sister. \"It was an accident,\" he said quickly. His sister was sad, but she was not hopeless. \"We can rebuild it,\" she said. This time, Ali was careful. He placed each block slowly and gently. Their new tower was even taller than the first one. Ali thanked his sister for her kindness. He learned that being helpful is better than being upset.",
+  q:[ {t:"Cause",q:"Why was Ali unhappy at first?",o:["He knocked over the tower.","He lost his blocks.","His sister was mean.","He was hungry."]},
+      {t:"Vocabulary",q:"What does \"rebuild\" mean?",o:["build again","break down","build badly","not build"]},
+      {t:"Recall",q:"How did Ali place the blocks the second time?",o:["slowly and gently","very quickly","angrily","with his eyes closed"]},
+      {t:"Word parts",q:"Which word means \"full of care\"?",o:["careful","careless","uncare","recare"]} ]}},
+{ n:13, name:"Longer words", hint:"remember · community",
+  words:["remember","fantastic","community","evaporate","important","family","together","wonderful","yesterday","magnetic","energy","environment","government","astronaut","vacation","condensation","invisible","librarian","neighborhood","electric","celebrate","temperature","imagine","dangerous"],
+  heart:[],
+  passage:{title:"Where Does a Puddle Go?", text:"After a rainstorm, puddles cover the playground. By the afternoon, many of them are gone. Where did the water go? The heat from the sun warms the water. The water slowly changes into a gas called water vapor. This is called evaporation. The water vapor rises into the sky. High in the air, it cools and turns back into tiny drops. This is called condensation. The drops join together to form clouds. When the drops get heavy enough, they fall as rain again. This is the water cycle, and it happens over and over.",
+  q:[ {t:"Cause",q:"What makes the puddle water evaporate?",o:["heat from the sun","cold air","people walking","the playground"]},
+      {t:"Vocabulary",q:"What is condensation?",o:["water vapor cooling into tiny drops","rain falling to the ground","water freezing into ice","water soaking into soil"]},
+      {t:"Recall",q:"What forms the clouds?",o:["tiny drops joined together","smoke","dust","snowflakes"]},
+      {t:"Main idea",q:"What is this passage mostly about?",o:["the water cycle","how to make puddles","playground safety","rainbows"]} ]}}
+];
+
+const ACTS = [
+  {id:"listen", title:"Listen and Choose", desc:"Hear a word, then tap how it is spelled.", total:10},
+  {id:"spell",  title:"Spell It", desc:"Hear a word, then build it with letter tiles.", total:8},
+  {id:"heart",  title:"Heart Words", desc:"Find the tricky words you learn by heart.", total:10},
+  {id:"speed",  title:"Speed Match", desc:"A word flashes. Pick the word you saw. 60 seconds.", total:0},
+  {id:"read",   title:"Read and Answer", desc:"Time your reading, then answer questions.", total:4}
+];
+
+/* ---------------- HELPERS ---------------- */
+const $ = s => document.querySelector(s);
+const el = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const plain = h => h.replace(/[\[\]]/g,"");
+const starsFor = p => p>=0.9?3:p>=0.7?2:p>=0.4?1:0;
+const starHTML = n => '<span class="stars" aria-label="'+n+' of 3 stars">'+'★'.repeat(n)+'<span class="off">'+'★'.repeat(3-n)+'</span></span>';
+
+function heartHTML(h){
+  return h.replace(/\[([^\]]+)\]/g,'<span class="h">$1</span>');
+}
+
+/* speech */
+let voice=null;
+function pickVoice(){
+  try{
+    const vs=speechSynthesis.getVoices().filter(v=>/^en(-|_)/i.test(v.lang));
+    voice = vs.find(v=>/Google US English|Samantha|Aria|Jenny|Microsoft Zira/i.test(v.name)) || vs.find(v=>/en(-|_)US/i.test(v.lang)) || vs[0] || null;
+  }catch(e){voice=null}
+}
+const canSpeak = 'speechSynthesis' in window;
+if(canSpeak){ pickVoice(); try{ speechSynthesis.onvoiceschanged=pickVoice; }catch(e){} }
+function speak(text, rate){
+  if(!canSpeak) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=rate||0.8; u.lang='en-US'; if(voice) u.voice=voice;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function stopSpeak(){ try{ if(canSpeak) speechSynthesis.cancel(); }catch(e){} }
+const speakerSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+
+/* look-alike spellings for choices */
+const SWAPS=[["sh","ch"],["ch","sh"],["th","t"],["wh","w"],["ck","k"],["ai","ay"],["ay","a"],["ee","ea"],["ea","ee"],["oa","o"],["ow","ou"],["ou","ow"],["igh","ie"],["ar","or"],["or","ar"],["er","ir"],["ir","ur"],["ur","er"],["oi","oy"],["oy","oi"],["oo","u"],["aw","au"],["au","aw"],["dge","ge"],["tch","ch"],["kn","n"],["wr","r"],["mb","m"],["ed","t"],["ing","in"],["es","s"],["ful","fel"],["tion","shun"],["ll","l"],["ff","f"],["ss","s"],["zz","z"],["nk","ng"],["ng","nk"],["st","s"],["bl","b"],["fl","f"],["cr","c"],["dr","d"],["tr","t"],["pl","p"],["sw","s"],["ce","se"],["ci","si"],["ge","je"],["gi","ji"],["le","el"],["pp","p"],["tt","t"],["nn","n"],["mm","m"],["un","on"],["re","ri"],["dis","dus"],["ly","ley"],["ness","nis"],["less","lis"],["y","ey"]];
+function lookAlikes(word){
+  const out=new Set();
+  for(const [a,b] of SWAPS){
+    let idx=word.indexOf(a);
+    while(idx!==-1){ out.add(word.slice(0,idx)+b+word.slice(idx+a.length)); idx=word.indexOf(a,idx+1); }
+  }
+  if(/[^aeiou]e$/.test(word) && word.length>3) out.add(word.slice(0,-1));
+  if(/^[a-z]{3,5}$/.test(word) && !/e$/.test(word) && /[aeiou][^aeiouwy]$/.test(word)) out.add(word+"e");
+  const V="aeiou";
+  for(let i=0;i<word.length;i++){ if(V.includes(word[i])) for(const v of V){ if(v!==word[i]) out.add(word.slice(0,i)+v+word.slice(i+1)); } }
+  if(word[0]==="b") out.add("d"+word.slice(1));
+  if(word[0]==="d") out.add("b"+word.slice(1));
+  out.delete(word);
+  return [...out].filter(w=>w.length>0);
+}
+function choicesFor(word, pool){
+  const near=shuffle(lookAlikes(word));
+  const picks=[];
+  // prefer pattern swaps (they come first in generation, but shuffle mixes) -> take near list
+  for(const w of near){ if(picks.length<3 && !picks.includes(w)) picks.push(w); }
+  for(const w of shuffle(pool)){ if(picks.length<3 && w!==word && !picks.includes(w)) picks.push(w); }
+  return shuffle([word,...picks]);
+}
+
+/* storage (this device only) */
+const KEY="readingLadder.v1";
+function loadHist(){ try{ const r=localStorage.getItem(KEY); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+let scoreLog=loadHist();
+function saveHist(){ try{ localStorage.setItem(KEY, JSON.stringify(scoreLog.slice(-300))); }catch(e){} }
+function record(entry){ scoreLog.push(entry); saveHist(); }
+function best(lvl, act){
+  const rs=scoreLog.filter(h=>h.lvl===lvl && h.act===act);
+  if(!rs.length) return null;
+  return rs.reduce((m,h)=> (h.score/h.total) > (m.score/m.total) ? h : m);
+}
+let selectedLevel=1;
+try{ const s=parseInt(localStorage.getItem(KEY+".level"),10); if(s>=1&&s<=13) selectedLevel=s; }catch(e){}
+
+/* ---------------- HOME ---------------- */
+function renderLadder(){
+  const lad=$("#ladder"); lad.innerHTML="";
+  LEVELS.forEach(L=>{
+    const b=el("button","rung"); b.type="button";
+    b.setAttribute("aria-pressed", L.n===selectedLevel ? "true":"false");
+    b.innerHTML='<b>'+L.n+'</b><small>'+L.name+'</small>';
+    b.onclick=()=>{ selectedLevel=L.n; try{localStorage.setItem(KEY+".level",String(L.n));}catch(e){} renderHome(); };
+    lad.appendChild(b);
+  });
+}
+function renderHome(){
+  renderLadder();
+  const L=LEVELS[selectedLevel-1];
+  $("#lvEyebrow").textContent="Level "+L.n+" of 13";
+  $("#lvTitle").textContent=L.name;
+  const hearts = L.heart.length ? ' &nbsp;·&nbsp; Heart words: <strong>'+L.heart.map(plain).join(", ")+'</strong>' : ' &nbsp;·&nbsp; Heart words: review all';
+  $("#lvSamples").innerHTML='Words like <strong>'+L.words.slice(0,5).join(", ")+'</strong>'+hearts;
+  const acts=$("#acts"); acts.innerHTML="";
+  ACTS.forEach(A=>{
+    const b=el("button","act"); b.type="button";
+    const bst=best(L.n,A.id);
+    let bestTxt="Not tried yet";
+    if(bst){ bestTxt=starHTML(starsFor(bst.score/bst.total))+'<span>Best: '+bst.score+'/'+bst.total+(bst.wpm?' · '+bst.wpm+' wpm':'')+'</span>'; }
+    b.innerHTML='<h3>'+A.title+'</h3><p>'+A.desc+'</p><div class="best">'+bestTxt+'</div>';
+    if(!canSpeak && (A.id==="listen"||A.id==="spell"||A.id==="heart")){
+      b.disabled=true; b.querySelector(".best").textContent="Needs sound. Try another browser.";
+    }
+    b.onclick=()=>start(A.id);
+    acts.appendChild(b);
+  });
+  renderHistory();
+}
+function renderHistory(){
+  const box=$("#histTbl");
+  const rows=scoreLog.slice(-10).reverse();
+  if(!rows.length){ box.innerHTML='<div class="empty">No scores yet. Finish a practice and your score shows up here.</div>'; return; }
+  const name=id=>(ACTS.find(a=>a.id===id)||{}).title||id;
+  let h='<table><thead><tr><th>When</th><th>Level</th><th>Practice</th><th>Score</th><th>Stars</th><th>Reading speed</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const d=new Date(r.d);
+    const when=d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+", "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    h+='<tr><td>'+when+'</td><td class="num">'+r.lvl+'</td><td>'+name(r.act)+'</td><td class="num">'+r.score+' / '+r.total+'</td><td>'+starHTML(starsFor(r.score/r.total))+'</td><td class="num">'+(r.wpm? r.wpm+' wpm':'—')+'</td></tr>';
+  });
+  box.innerHTML=h+'</tbody></table>';
+}
+function resetClear(){ $("#clearBox").innerHTML='<button class="linkbtn" id="clearBtn" type="button">Clear scores</button>'; bindClear(); }
+function bindClear(){ const b=$("#clearBtn"); b.onclick=function(){ const box=$("#clearBox");
+  box.innerHTML='<span class="warn">Delete all scores on this device?</span><button class="linkbtn" id="yesClear" type="button">Yes, delete</button><button class="linkbtn" id="noClear" type="button">Keep them</button>';
+  $("#yesClear").onclick=()=>{ scoreLog=[]; saveHist(); resetClear(); renderHome(); };
+  $("#noClear").onclick=resetClear; }; }
+bindClear();
+
+/* ---------------- PRACTICE FRAME ---------------- */
+let run=null; // current activity state
+let timers=[];
+function later(fn,ms){ const t=setTimeout(fn,ms); timers.push(t); return t; }
+function clearTimers(){ timers.forEach(clearTimeout); timers.forEach(clearInterval); timers=[]; }
+
+function showPractice(act){
+  const L=LEVELS[selectedLevel-1];
+  $("#home").hidden=true; $("#practice").hidden=false;
+  $("#pLevel").textContent="Level "+L.n+" · "+L.name;
+  $("#pTitle").textContent=act.title;
+  window.scrollTo(0,0);
+}
+function setMeter(html){ $("#meter").innerHTML=html; }
+function setProg(f){ $("#prog").style.width=Math.max(0,Math.min(1,f))*100+"%"; }
+$("#backBtn").onclick=goHome;
+function goHome(){ clearTimers(); stopSpeak(); run=null; $("#practice").hidden=true; $("#home").hidden=false; renderHome(); window.scrollTo(0,0); }
+
+function start(id){
+  clearTimers(); stopSpeak();
+  const act=ACTS.find(a=>a.id===id);
+  showPractice(act);
+  const L=LEVELS[selectedLevel-1];
+  if(id==="listen") startListen(L,act);
+  else if(id==="spell") startSpell(L,act);
+  else if(id==="heart") startHeart(L,act);
+  else if(id==="speed") startSpeed(L,act);
+  else if(id==="read") startRead(L,act);
+}
+
+function finish(act, score, total, extra){
+  clearTimers(); stopSpeak();
+  const L=LEVELS[selectedLevel-1];
+  const prevBest=best(L.n,act.id);
+  const entry={d:new Date().toISOString(), lvl:L.n, act:act.id, score, total};
+  if(extra && extra.wpm) entry.wpm=extra.wpm;
+  record(entry);
+  setProg(1);
+  const p= total? score/total : 0;
+  const s=starsFor(p);
+  const msg=["Let's try that again.","Nice try. Practice this one again.","Good job! Keep practicing.","Excellent work!"][s];
+  const st=$("#stage"); st.innerHTML="";
+  const r=el("div","result");
+  r.innerHTML='<div class="score">'+score+' / '+total+'</div>'+starHTML(s)+'<div class="msg">'+msg+'</div>';
+  if(extra && extra.lines) extra.lines.forEach(t=>r.appendChild(el("div","extra",t)));
+  if(prevBest && total && p > prevBest.score/prevBest.total) r.appendChild(el("div","extra","New best score for this practice!"));
+  if(extra && extra.missed && extra.missed.length){
+    r.appendChild(el("div","extra","Words to practice:"));
+    r.appendChild(el("div","missed",extra.missed.join(", ")));
+  }
+  const row=el("div","row");
+  const again=el("button","primary","Try again"); again.type="button"; again.onclick=()=>start(act.id);
+  const back=el("button","ghost","Back to levels"); back.type="button"; back.onclick=goHome;
+  row.append(again,back); r.appendChild(row);
+  st.appendChild(r);
+  again.focus();
+}
+
+function hearButton(text, label){
+  const b=el("button","hear"); b.type="button";
+  b.innerHTML=speakerSVG+'<span>'+(label||"Hear the word")+'</span>';
+  b.onclick=()=>speak(typeof text==="function"?text():text);
+  return b;
+}
+
+/* ---------------- 1. LISTEN AND CHOOSE ---------------- */
+function startListen(L,act){
+  const items=shuffle(L.words).slice(0,act.total);
+  run={i:0,correct:0,missed:[]};
+  const pool=L.words;
+  function show(){
+    if(run.i>=items.length) return finish(act, run.correct, items.length, {missed:run.missed});
+    const w=items[run.i];
+    setMeter('<span>Word <b>'+(run.i+1)+'</b> of '+items.length+'</span><span>Correct <b>'+run.correct+'</b></span>');
+    setProg(run.i/items.length);
+    const st=$("#stage"); st.innerHTML="";
+    st.appendChild(el("div","prompt","Listen to the word. Tap the one you hear."));
+    st.appendChild(hearButton(w));
+    const grid=el("div","choices");
+    const fb=el("div","feedback");
+    const opts=choicesFor(w,pool);
+    opts.forEach(o=>{
+      const c=el("button","choice",o); c.type="button";
+      c.onclick=()=>{
+        grid.querySelectorAll("button").forEach(b=>b.disabled=true);
+        if(o===w){ c.classList.add("right"); run.correct++; fb.textContent="Correct!"; fb.className="feedback good"; later(()=>{run.i++;show();},900); }
+        else{
+          c.classList.add("wrong"); grid.querySelectorAll("button").forEach(b=>{ if(b.textContent===w) b.classList.add("right"); });
+          fb.textContent="The word was “"+w+"”."; fb.className="feedback bad"; run.missed.push(w); speak(w);
+          const n=el("button","next","Next"); n.type="button"; n.onclick=()=>{run.i++;show();}; st.appendChild(n); n.focus();
+        }
+      };
+      grid.appendChild(c);
+    });
+    st.append(grid,fb);
+    later(()=>speak(w),250);
+  }
+  show();
+}
+
+/* ---------------- 2. SPELL IT ---------------- */
+function startSpell(L,act){
+  const items=shuffle(L.words).slice(0,act.total);
+  run={i:0,correct:0,missed:[]};
+  function show(){
+    if(run.i>=items.length) return finish(act, run.correct, items.length, {missed:run.missed});
+    const w=items[run.i];
+    setMeter('<span>Word <b>'+(run.i+1)+'</b> of '+items.length+'</span><span>Correct <b>'+run.correct+'</b></span>');
+    setProg(run.i/items.length);
+    const st=$("#stage"); st.innerHTML="";
+    st.appendChild(el("div","prompt","Listen. Tap the letters to spell the word."));
+    st.appendChild(hearButton(w));
+    const extras=shuffle("aeioustrnlmpdbcgh".split("").filter(ch=>!w.includes(ch))).slice(0, w.length>6?2:3);
+    const letters=shuffle([...w.split(""),...extras]);
+    const placed=[]; // tile indexes
+    const slots=el("div","slots");
+    const tiles=el("div","tiles");
+    const fb=el("div","feedback");
+    const tileBtns=letters.map((ch,ix)=>{ const t=el("button","tile",ch); t.type="button"; t.onclick=()=>{ if(placed.length>=w.length) return; placed.push(ix); t.disabled=true; draw(); }; tiles.appendChild(t); return t; });
+    function draw(){
+      slots.innerHTML="";
+      for(let k=0;k<w.length;k++){
+        const s=el("button","slot"+(placed[k]!=null?" filled":""), placed[k]!=null?letters[placed[k]]:""); s.type="button";
+        s.setAttribute("aria-label", placed[k]!=null ? "Letter "+letters[placed[k]]+", tap to remove" : "Empty space");
+        s.onclick=()=>{ if(done||placed[k]==null) return; const ix=placed.splice(k,1)[0]; tileBtns[ix].disabled=false; draw(); };
+        slots.appendChild(s);
+      }
+    }
+    let done=false;
+    draw();
+    const row=el("div","row");
+    const clear=el("button","ghost","Clear"); clear.type="button";
+    clear.onclick=()=>{ if(done) return; placed.length=0; tileBtns.forEach(t=>t.disabled=false); draw(); };
+    const check=el("button","primary","Check"); check.type="button";
+    check.onclick=()=>{
+      if(done) return;
+      if(placed.length<w.length){ fb.textContent="Fill every space first."; fb.className="feedback"; return; }
+      done=true;
+      const guess=placed.map(ix=>letters[ix]).join("");
+      tileBtns.forEach(t=>t.disabled=true); clear.disabled=true; check.disabled=true;
+      if(guess===w){ slots.classList.add("right"); run.correct++; fb.textContent="Correct!"; fb.className="feedback good"; later(()=>{run.i++;show();},1000); }
+      else{
+        slots.classList.add("wrong"); run.missed.push(w);
+        fb.textContent="It is spelled “"+w+"”."; fb.className="feedback bad"; speak(w);
+        const n=el("button","next","Next"); n.type="button"; n.onclick=()=>{run.i++;show();}; st.appendChild(n); n.focus();
+      }
+    };
+    row.append(clear,check);
+    st.append(slots,tiles,row,fb);
+    later(()=>speak(w),250);
+  }
+  show();
+}
+
+/* ---------------- 3. HEART WORDS ---------------- */
+function startHeart(L,act){
+  let pool=[];
+  if(L.heart.length){
+    pool=L.heart.slice();
+    const prev=shuffle(LEVELS.filter(x=>x.n<L.n).flatMap(x=>x.heart)).slice(0,Math.max(0,8-pool.length));
+    pool=pool.concat(prev);
+  } else pool=LEVELS.flatMap(x=>x.heart);
+  // build 10 items, current level's words first in the mix
+  let items=[]; while(items.length<act.total){ items=items.concat(shuffle(L.heart.length?L.heart:pool)); if(L.heart.length) items=items.concat(shuffle(pool)); }
+  items=shuffle(items.slice(0,act.total));
+  run={i:0,correct:0,missed:[]};
+  function show(){
+    if(run.i>=items.length) return finish(act, run.correct, items.length, {missed:[...new Set(run.missed)]});
+    const h=items[run.i], w=plain(h);
+    setMeter('<span>Word <b>'+(run.i+1)+'</b> of '+items.length+'</span><span>Correct <b>'+run.correct+'</b></span>');
+    setProg(run.i/items.length);
+    const st=$("#stage"); st.innerHTML="";
+    st.appendChild(el("div","prompt","Listen. Tap the heart word you hear."));
+    st.appendChild(hearButton(w));
+    const others=shuffle([...new Set(pool.map(plain))].filter(x=>x!==w)).slice(0,3);
+    const grid=el("div","choices"); const fb=el("div","feedback");
+    shuffle([w,...others]).forEach(o=>{
+      const c=el("button","choice",o); c.type="button";
+      c.onclick=()=>{
+        grid.querySelectorAll("button").forEach(b=>b.disabled=true);
+        const ok=o===w;
+        if(ok){ c.classList.add("right"); run.correct++; fb.textContent="Correct!"; fb.className="feedback good"; }
+        else { c.classList.add("wrong"); grid.querySelectorAll("button").forEach(b=>{ if(b.textContent===w) b.classList.add("right"); }); fb.textContent="The word was “"+w+"”."; fb.className="feedback bad"; run.missed.push(w); }
+        const big=el("div","bigword heartword"); big.innerHTML=heartHTML(h);
+        const note=el("p","note","The red part with the heart is the tricky part. Learn it by heart. Sound out the rest.");
+        const n=el("button","next","Next"); n.type="button"; n.onclick=()=>{run.i++;show();};
+        st.append(big,note,n); n.focus(); speak(w);
+      };
+      grid.appendChild(c);
+    });
+    st.append(grid,fb);
+    later(()=>speak(w),250);
+  }
+  show();
+}
+
+/* ---------------- 4. SPEED MATCH ---------------- */
+function startSpeed(L,act){
+  const flashMs = L.n>=11 ? 1100 : L.n>=7 ? 950 : 850;
+  const st=$("#stage"); st.innerHTML="";
+  setMeter('<span>60 seconds</span>'); setProg(0);
+  st.appendChild(el("div","prompt","A word will flash for less than a second. Then tap the word you saw. Get as many right as you can in 60 seconds."));
+  const go=el("button","primary","Start"); go.type="button"; go.onclick=begin;
+  st.appendChild(go); go.focus();
+  function begin(){
+    run={correct:0,tries:0,missed:[],left:60,over:false};
+    const pool=L.words;
+    let deck=shuffle(pool);
+    st.innerHTML="";
+    const tm=el("div","timer","60");
+    const flash=el("div","flash");
+    const grid=el("div","choices");
+    const fb=el("div","feedback");
+    st.append(tm,flash,grid,fb);
+    const iv=setInterval(()=>{
+      run.left--; tm.textContent=String(run.left); setProg((60-run.left)/60);
+      setMeter('<span>Correct <b>'+run.correct+'</b></span><span>Tries <b>'+run.tries+'</b></span>');
+      if(run.left<=0){ clearInterval(iv); run.over=true;
+        const acc=run.tries? Math.round(run.correct/run.tries*100):0;
+        finish(act, run.correct, Math.max(run.tries,1), {missed:[...new Set(run.missed)], lines:["You matched "+run.correct+" words in one minute.","Accuracy: "+acc+"%"]});
+      }
+    },1000);
+    timers.push(iv);
+    function next(){
+      if(run.over) return;
+      if(!deck.length) deck=shuffle(pool);
+      const w=deck.pop();
+      grid.innerHTML=""; fb.textContent=""; fb.className="feedback";
+      flash.textContent=w;
+      later(()=>{
+        if(run.over) return;
+        flash.textContent="?";
+        choicesFor(w,pool).forEach(o=>{
+          const c=el("button","choice",o); c.type="button";
+          c.onclick=()=>{
+            if(run.over) return;
+            grid.querySelectorAll("button").forEach(b=>b.disabled=true);
+            run.tries++;
+            if(o===w){ run.correct++; c.classList.add("right"); }
+            else { c.classList.add("wrong"); run.missed.push(w); grid.querySelectorAll("button").forEach(b=>{ if(b.textContent===w) b.classList.add("right"); }); flash.textContent=w; }
+            setMeter('<span>Correct <b>'+run.correct+'</b></span><span>Tries <b>'+run.tries+'</b></span>');
+            later(next, o===w?350:900);
+          };
+          grid.appendChild(c);
+        });
+      }, flashMs);
+    }
+    next();
+  }
+}
+
+/* ---------------- 5. READ AND ANSWER ---------------- */
+function startRead(L,act){
+  const P=L.passage;
+  const words=P.text.split(/\s+/).filter(Boolean).length;
+  const reads=scoreLog.filter(h=>h.lvl===L.n && h.act==="read");
+  const bestW=reads.reduce((m,h)=>Math.max(m,h.wpm||0),0);
+  run={t0:0,secs:0,wpm:0,qi:0,correct:0};
+  const st=$("#stage"); st.innerHTML="";
+  setMeter('<span><b>'+words+'</b> words</span>'+(reads.length?'<span>Times read <b>'+reads.length+'</b></span>':''));
+  setProg(0);
+  const wrap=el("div","passage-wrap");
+  const tip=el("p","note","1. Tap Listen first to hear it read. 2. Tap Start timer and read it yourself. 3. Tap I'm done, then answer the questions.");
+  tip.style.textAlign="left"; tip.style.maxWidth="none";
+  const art=el("div","passage"); art.innerHTML="<h3></h3><p style='margin:0'></p>";
+  art.querySelector("h3").textContent=P.title; art.querySelector("p").textContent=P.text;
+  const bar=el("div","readbar");
+  const left=el("div","row"); left.style.justifyContent="flex-start";
+  const listen=el("button","ghost","Listen first"); listen.type="button";
+  let listening=false;
+  listen.onclick=()=>{ if(listening){ stopSpeak(); listening=false; listen.textContent="Listen first"; return; }
+    if(!canSpeak) return; listening=true; listen.textContent="Stop listening";
+    try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(P.title+". "+P.text); u.rate=0.85; u.lang="en-US"; if(voice) u.voice=voice; u.onend=()=>{listening=false;listen.textContent="Listen first";}; speechSynthesis.speak(u);}catch(e){} };
+  if(!canSpeak) listen.hidden=true;
+  const startB=el("button","primary","Start timer"); startB.type="button";
+  const clock=el("div","clock","0:00");
+  left.append(listen,startB);
+  bar.append(left,clock);
+  wrap.append(tip,art,bar);
+  st.appendChild(wrap);
+  let iv=null;
+  const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+  startB.onclick=()=>{
+    if(!run.t0){
+      stopSpeak(); listening=false; listen.textContent="Listen first"; listen.disabled=true;
+      run.t0=Date.now(); startB.textContent="I'm done reading";
+      iv=setInterval(()=>{ clock.textContent=fmt(Math.floor((Date.now()-run.t0)/1000)); },250); timers.push(iv);
+    } else {
+      clearInterval(iv);
+      run.secs=Math.max(1,(Date.now()-run.t0)/1000);
+      run.wpm=Math.round(words/run.secs*60);
+      clock.textContent=fmt(Math.round(run.secs));
+      startB.remove(); listen.remove();
+      const w=el("div","wpm"); w.innerHTML='Reading speed: <b>'+run.wpm+'</b> words per minute'+(bestW?' &nbsp;·&nbsp; your best: '+bestW:'');
+      left.appendChild(w);
+      ask();
+    }
+  };
+  const qs=P.q.map(x=>({...x}));
+  function ask(){
+    const old=st.querySelector(".qbox"); if(old) old.remove();
+    if(run.qi>=qs.length){
+      const lines=["Reading speed: "+run.wpm+" words per minute"+(bestW && run.wpm>bestW?" (new best!)":"")];
+      if(reads.length) lines.push("You have read this story "+(reads.length+1)+" times. Reading it again makes you faster.");
+      return finish(act, run.correct, qs.length, {wpm:run.wpm, lines});
+    }
+    setProg(run.qi/qs.length);
+    setMeter('<span>Question <b>'+(run.qi+1)+'</b> of '+qs.length+'</span><span>Correct <b>'+run.correct+'</b></span>');
+    const Q=qs[run.qi];
+    const box=el("div","qbox");
+    box.appendChild(el("div","qtype",Q.t));
+    box.appendChild(el("h4",null,Q.q));
+    const grid=el("div","choices"); const fb=el("div","feedback");
+    fb.style.textAlign="left";
+    const ans=Q.o[0];
+    shuffle(Q.o).forEach(o=>{
+      const c=el("button","choice small",o); c.type="button";
+      c.onclick=()=>{
+        grid.querySelectorAll("button").forEach(b=>b.disabled=true);
+        if(o===ans){ c.classList.add("right"); run.correct++; fb.textContent="Correct!"; fb.className="feedback good"; }
+        else { c.classList.add("wrong"); grid.querySelectorAll("button").forEach(b=>{ if(b.textContent===ans) b.classList.add("right"); }); fb.textContent="Look back at the story to find the answer."; fb.className="feedback bad"; }
+        const n=el("button","next", run.qi+1<qs.length?"Next question":"See my score"); n.type="button"; n.style.alignSelf="flex-start";
+        n.onclick=()=>{ run.qi++; ask(); };
+        box.appendChild(n); n.focus();
+      };
+      grid.appendChild(c);
+    });
+    box.append(grid,fb);
+    wrap.appendChild(box);
+    box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+}
+
+renderHome();
+</script>
+</body>
+</html>
